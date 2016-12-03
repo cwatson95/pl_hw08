@@ -19,7 +19,7 @@ data BoolExp
 -- Environments for interpreting boolean expressions
 type BEnv = M.Map Name Bool
 
--- TASK!
+-- TASK!!!
 -- compileBExp tchan fchan b
 -- returns a process p that when juxtaposed with a compatible environment
 -- sends a message on tchan if the boolean expression evaluates to true
