@@ -1,0 +1,30 @@
+Typing Rules for the Pi Calculus
+
+Please use ASCII notation for inference rules, like in the lecture notes.
+
+--------------
+Γ  |- NIL : () 
+
+Γ |- p1 : ()  Γ |- p2 : () 
+---------------------------
+Γ |- (p1 | p2) : () 
+
+Γ, name:t |- p : ()
+----------------------
+Γ |- New name t p : ()
+
+Γ |- exp : t  Γ(name) = t  
+-------------------------
+Γ |- Out name exp : () 
+
+Γ(name) = t      Γ |- pat : t |> Γ'      Γ' |- p : () 
+-----------------------------------------------------
+Γ |- Inp name pat p : () 
+
+Γ(name) = t      Γ |- pat : t |> Γ'      Γ' |- p : () 
+-----------------------------------------------------
+Γ |- RepInp name pat p : () 
+
+Γ |- p : ()
+-------------------
+Γ |- Embed f p : () 
