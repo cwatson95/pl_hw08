@@ -120,7 +120,16 @@ typeTrans (LTArrow t1 t2) = TTup [TChan (typeTrans t1), TChan (typeTrans t2)]
 -- compiler goes here
 -- note that your first argument is a name generator, to come up with fresh channel names
 compileLam :: IO Name -> Name -> Gamma -> Lam -> IO (LTyp, Pi)
-compileLam = undefined
+compileLam gen res_channel gamma LUnit = (LTUnit, (Out res_channel unitE))
+compileLam gen res_channel gamma (LVar varname) = (LTUnit, (New res_channel ))
+compileLam gen res_channel gamma labs@(LAbs varname typ f) = 
+compileLam gen res_channel gamma (LApp x y) = 
+  case (lintypeOf gamma (LApp x y)) of
+    (Left s) -> error s
+    (Right ltyp) -> (ltyp,p)
+  where p = New res_channel' (typeTrans ltyp) 
+        res_channel' = -- Maybe use gen here?
+compileLam gen res_channel gamma (LEff (io) f) =  Embed (\ x::Env -> io) $ compileLam gen name gamma f 
 
 startLam :: Lam -> IO ()
 startLam e = do
