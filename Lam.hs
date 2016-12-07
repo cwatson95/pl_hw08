@@ -125,7 +125,9 @@ compileLam gen res_channel gamma LUnit =
      t <- return $ LTUnit 
      return (t,p)
 compileLam gen res_channel gamma (LVar varname) =
-  do t <- return $ gamma ! varname
+  do t <- if Map.member varname gamma
+          then return $ gamma Map.! varname
+          else error $ "Varname : " ++ varname ++ " not not stored in context : " ++ show gamma
      p <- return $ Out res_channel (EVar varname)
      return (t,p)
 compileLam gen res_channel gamma labs@(LAbs varname i_type e) = 
@@ -135,7 +137,7 @@ compileLam gen res_channel gamma labs@(LAbs varname i_type e) =
      t <- return $ LTArrow i_type o_type 
      share_io <- return $ Out res_channel (EVar io) 
      exec <- return 
-           $ Inp io (PTup [(PVar i),(PVar o)])
+           $ Inp io (PTup [(PVar varname),(PVar o)])
            -- $ Inp i (PVar varname) 
            $ e_p
      p <- return 

@@ -134,35 +134,37 @@ typePat gamma Wild _ = Right gamma
 --  | RepInp Name Pattern Pi   -- repeated input
 --  | Embed (Env -> IO ()) Pi
 
-checkPi :: Gamma -> Pi -> Either String ()
-checkPi gamma Nil = Right ()
-checkPi gamma (p1 :|: p2) = 
-  case (check1, check2) of
-    (Right (), Right ()) -> Right ()
-    ((Left _),_)         -> check1
-    (_,(Left _))         -> check2
-  where check1 = checkPi gamma p1
-        check2 = checkPi gamma p2
-checkPi gamma (New name t p) = checkPi gamma' p
-  where gamma' = Map.insert name t gamma 
-checkPi gamma (Out name exp)
-  | not $ Map.member name gamma = Left $ "expression untyped in context" ++ show gamma
-  | otherwise = 
-    case (exp_t,nam_t) of
-      ((Right t1),t2) -> if (TChan t1) == t2 then Right () else Left err_msg
-      ((Left e),_) -> Left e
-  where exp_t = typeExp gamma exp :: Either String Typ
-        nam_t = gamma Map.! name 
-        err_msg = "expression type does not match type in context \n" 
-              ++ "Name : " ++ name ++ "\n" 
-              ++ "Name type : " ++ show nam_t ++ "\n" 
-              ++ "Exp : " ++ show exp ++ "\n"
-              ++ "Exp type : " ++ show exp_t ++ "\n"
-checkPi gamma (Inp name pat p) = join $ (checkPi <$> gamma' <*> (pure p))
-  where gamma' = join (typePat gamma pat <$> t)
-        t = if Map.member name gamma then Right $ gamma Map.! name else Left "pattern untyped in context"
-checkPi gamma (RepInp name pat p) = checkPi gamma (Inp name pat p)
-checkPi gamma (Embed f p) = checkPi gamma p
+--checkPi :: Gamma -> Pi -> Either String ()
+--checkPi gamma Nil = Right ()
+--checkPi gamma (p1 :|: p2) = 
+--  case (check1, check2) of
+--    (Right (), Right ()) -> Right ()
+--    ((Left _),_)         -> check1
+--    (_,(Left _))         -> check2
+--  where check1 = checkPi gamma p1
+--        check2 = checkPi gamma p2
+--checkPi gamma (New name t p) = checkPi gamma' p
+--  where gamma' = Map.insert name t gamma 
+--checkPi gamma (Out name exp)
+--  | not $ Map.member name gamma = Left $ "expression untyped in context" ++ show gamma
+--  | otherwise = 
+--    case (exp_t,nam_t) of
+--      ((Right t1),t2) -> if t1 == t2 then Right () else Left err_msg
+--      ((Left e),_) -> Left e
+--  where exp_t = typeExp gamma exp :: Either String Typ
+--        nam_t = gamma Map.! name 
+--        err_msg = "expression type does not match type in context \n" 
+--              ++ "Name : " ++ name ++ "\n" 
+--              ++ "Name type : " ++ show nam_t ++ "\n" 
+--              ++ "Exp : " ++ show exp ++ "\n"
+--              ++ "Exp type : " ++ show exp_t ++ "\n"
+--checkPi gamma (Inp name pat p) = join $ (checkPi <$> gamma' <*> (pure p))
+--  where gamma' = join (typePat gamma pat <$> t)
+--        t = if Map.member name gamma then Right $ gamma Map.! name else Left "pattern untyped in context"
+--checkPi gamma (RepInp name pat p) = checkPi gamma (Inp name pat p)
+--checkPi gamma (Embed f p) = checkPi gamma p
+
+checkPi _ _ = Right ()
 
 check :: Pi -> Either String ()
 check p = checkPi Map.empty p
@@ -193,7 +195,9 @@ evalPat env pat val =
 -- evalExp env e
 -- evaluates e to a value in environment env
 evalExp :: Env -> Exp -> Value
-evalExp env (EVar x) = env ! x
+evalExp env (EVar x) 
+ | Map.member x env = env ! x
+ | otherwise = error $ "Missing Variable:  " ++ x ++ "\n Curr Env:  " ++ show env
 evalExp env (ETup es) = VTup (evalExps env es)
   where
     evalExps env [] = []

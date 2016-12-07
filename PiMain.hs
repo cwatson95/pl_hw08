@@ -1,6 +1,9 @@
 import Pi
 import Control.Exception.Base
 
+import Data.Map (Map, (!))
+import qualified Data.Map as Map
+
 n,i,o :: Name
 n = "n"
 i = "i"
@@ -12,6 +15,7 @@ test2 =
   New n unitT $
   (Inp n (PVar i) test1) :|: (Out n unitE)
 
+
 test3 =
   New n unitT $
   (RepInp n (PVar i) test1) :|: (Out n unitE) :|: (Out n unitE):|: (Out n unitE)
@@ -22,6 +26,10 @@ rep n pi | n > 0  = pi :|: rep (n-1) pi
 test4 =
   New n unitT $
   (RepInp n (PVar i) test1) :|: (rep 100 (Out n unitE))
+
+test2_t = checkPi Map.empty test2
+test3_t = checkPi Map.empty test3
+test4_t = checkPi Map.empty test4
 
 tests :: [Pi]
 tests = [test1, test2, test3, test4]
