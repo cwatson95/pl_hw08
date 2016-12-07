@@ -120,17 +120,49 @@ typeTrans (LTArrow t1 t2) = TTup [TChan (typeTrans t1), TChan (typeTrans t2)]
 -- compiler goes here
 -- note that your first argument is a name generator, to come up with fresh channel names
 compileLam :: IO Name -> Name -> Gamma -> Lam -> IO (LTyp, Pi)
-compileLam gen res_channel gamma LUnit = (LTUnit, (Out res_channel unitE))
-compileLam gen res_channel gamma (LVar varname) = (LTUnit, (New res_channel ))
-compileLam gen res_channel gamma labs@(LAbs varname typ f) = 
+compileLam gen res_channel gamma LUnit = 
+  do p <- return $ Out res_channel unitE
+     t <- return $ LTUnit 
+     return (t,p)
+compileLam gen res_channel gamma (LVar varname) =
+  do t <- return $ gamma ! varname
+     p <- return $ Out res_channel (EVar varname)
+     return (t,p)
+compileLam gen res_channel gamma labs@(LAbs varname i_type e) = 
+  do (io,i,o) <- (\ x y z -> (x,y,z)) <$> gen <*> gen <*> gen 
+     gamma' <- return $ Map.insert varname i_type gamma 
+     (o_type,e_p) <- compileLam gen o gamma' e
+     t <- return $ LTArrow i_type o_type 
+     share_io <- return $ Out res_channel (EVar io) 
+     exec <- return 
+           $ Inp io (PTup [(PVar i),(PVar o)])
+           -- $ Inp i (PVar varname) 
+           $ e_p
+     p <- return 
+        $ New io (typeTrans t)
+        $ share_io :|: exec 
+     return (t,p)
 compileLam gen res_channel gamma (LApp x y) = 
-  case (lintypeOf gamma (LApp x y)) of
-    (Left s) -> error s
-    (Right ltyp) -> (ltyp,p)
-  where p = New res_channel' (typeTrans ltyp) 
-        res_channel' = -- Maybe use gen here?
-compileLam gen res_channel gamma (LEff (io) f) =  Embed (\ x::Env -> io) $ compileLam gen name gamma f 
+  do x_io <- gen
+     (y_o,x_res) <- (\ x y -> (x,y)) <$> gen <*> gen
+     (x_t,x_p) <- compileLam gen x_res gamma x
+     (y_t,y_p) <- compileLam gen y_o gamma y
+     plumbing <- return 
+               $ Inp x_res (PVar x_io)
+               $ Out x_io (ETup [(EVar y_o),(EVar res_channel)])
+     p <- return 
+        $ New y_o (TChan $ typeTrans y_t)
+        $ New x_res (TChan $ typeTrans x_t)
+        $ y_p :|: x_p :|: plumbing  
+     t <- return $ (\ (LTArrow _ typ) -> typ) x_t
+     return (t,p)
+compileLam gen res_channel gamma (LEff io e) =  
+  do (e_t,e_p) <- compileLam gen res_channel gamma e
+     p <- return $ Embed (envAction io) e_p 
+     return (e_t,p)
 
+envAction :: IO () -> Env -> IO ()
+envAction io _ = io
 startLam :: Lam -> IO ()
 startLam e = do
   b <- lincheck e
