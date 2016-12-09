@@ -113,6 +113,7 @@ typeExp :: Gamma -> Exp -> Either String Typ
 typeExp gamma (EVar name)
  | Map.member name gamma = Right $ gamma Map.! name
  | otherwise = Left $ "expression name untyped in contex" ++ show gamma 
+typeExp gamma (ETup []) = Right $ TTup [] 
 typeExp gamma (ETup es) = TTup <$> (sequence $ map (typeExp gamma) es)
 
 
@@ -134,37 +135,38 @@ typePat gamma Wild _ = Right gamma
 --  | RepInp Name Pattern Pi   -- repeated input
 --  | Embed (Env -> IO ()) Pi
 
---checkPi :: Gamma -> Pi -> Either String ()
---checkPi gamma Nil = Right ()
---checkPi gamma (p1 :|: p2) = 
---  case (check1, check2) of
---    (Right (), Right ()) -> Right ()
---    ((Left _),_)         -> check1
---    (_,(Left _))         -> check2
---  where check1 = checkPi gamma p1
---        check2 = checkPi gamma p2
---checkPi gamma (New name t p) = checkPi gamma' p
---  where gamma' = Map.insert name t gamma 
---checkPi gamma (Out name exp)
---  | not $ Map.member name gamma = Left $ "expression untyped in context" ++ show gamma
---  | otherwise = 
---    case (exp_t,nam_t) of
---      ((Right t1),t2) -> if t1 == t2 then Right () else Left err_msg
---      ((Left e),_) -> Left e
---  where exp_t = typeExp gamma exp :: Either String Typ
---        nam_t = gamma Map.! name 
---        err_msg = "expression type does not match type in context \n" 
---              ++ "Name : " ++ name ++ "\n" 
---              ++ "Name type : " ++ show nam_t ++ "\n" 
---              ++ "Exp : " ++ show exp ++ "\n"
---              ++ "Exp type : " ++ show exp_t ++ "\n"
---checkPi gamma (Inp name pat p) = join $ (checkPi <$> gamma' <*> (pure p))
---  where gamma' = join (typePat gamma pat <$> t)
---        t = if Map.member name gamma then Right $ gamma Map.! name else Left "pattern untyped in context"
---checkPi gamma (RepInp name pat p) = checkPi gamma (Inp name pat p)
---checkPi gamma (Embed f p) = checkPi gamma p
-
-checkPi _ _ = Right ()
+checkPi :: Gamma -> Pi -> Either String ()
+checkPi gamma Nil = Right ()
+checkPi gamma (p1 :|: p2) = 
+  let p1_check = checkPi gamma p1 
+      p2_check = checkPi gamma p2
+  in  (\ a b -> ()) <$> p1_check <*> p2_check
+checkPi gamma (New name t p) = 
+  let gamma' = Map.insert name t gamma -- ???
+  in checkPi gamma' p
+checkPi gamma (Out name e) 
+  | Map.member name gamma = join $ check <$> (pure name_type) <*> e_type  
+  | otherwise = Left $ name ++ " not found in context " ++ show gamma
+  where name_type = gamma Map.! name
+        e_type = typeExp gamma e
+        check = (\ a b -> if a == b then Right () else Left $ outError name a e b gamma)
+checkPi gamma (Inp name pat p) = 
+  let typ = if Map.member name gamma 
+            then Right $ gamma Map.! name
+            else Left $ name ++ " not found in context " ++ show gamma
+      gamma' = join $ typePat gamma pat <$> typ
+  in  join $ checkPi <$> gamma' <*> (pure p)
+checkPi gamma (RepInp name pat p) = checkPi gamma (Inp name pat p)
+checkPi gamma (Embed _ p) = checkPi gamma p
+ 
+--checkPi _ _ = Right ()
+outError a a_t b b_t gamma = 
+  "Types do not match \n" 
+ ++ "Variable : " ++ show a ++ "\n"
+ ++ "Variable type : " ++ show a_t ++ "\n"
+ ++ "Expression : " ++ show b ++ "\n"
+ ++ "Expression type : " ++ show b_t ++ "\n"
+ ++ "Context : " ++ show gamma
 
 check :: Pi -> Either String ()
 check p = checkPi Map.empty p
@@ -186,12 +188,18 @@ type Env = Map Name Value
 -- evalPat env p v
 -- match a value v against a pattern p and extend environment env
 evalPat :: Env -> Pattern -> Value -> Env
-evalPat env pat val =
-  case (pat,val) of
-    (Wild,_) -> env
-    ((PVar name), (VChan _)) -> Map.insert name val env
-    ((PTup pts),(VTup vls)) -> foldl (\ env' (pat',val') -> evalPat env' pat' val' ) env (zip pts vls) --length check????
-    (_,_) -> error $ "Could not eval pattern value pair " ++ (show (pat,val))
+evalPat env Wild _ = env
+evalPat env (PVar name) val = Map.insert name val env
+evalPat env (PTup pts) (VTup vls)
+ | length pts == length vls = foldl (\ env' (pat',val') -> evalPat env' pat' val' ) env (zip pts vls) --length check????
+ | otherwise = error $ "Pattern matching failed due to tuples of unequal length \n" 
+                    ++ "Pattern : " ++ show (PTup pts) ++ "\n"
+                    ++ "Value : " ++ show (VTup vls) ++ "\n"
+evalPat env (PTup pts) (VChan v) = 
+  error $ "Pattern matching failed \n"
+       ++ "Pattern : " ++ show (PTup pts) ++ "\n"
+       ++ "Value : " ++ show (VChan v)
+
 -- evalExp env e
 -- evaluates e to a value in environment env
 evalExp :: Env -> Exp -> Value

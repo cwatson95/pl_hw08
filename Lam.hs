@@ -131,17 +131,17 @@ compileLam gen res_channel gamma (LVar varname) =
      p <- return $ Out res_channel (EVar varname)
      return (t,p)
 compileLam gen res_channel gamma labs@(LAbs varname i_type e) = 
-  do (io,i,o) <- (\ x y z -> (x,y,z)) <$> gen <*> gen <*> gen 
+  do (io,i,o) <- (\ x y z -> (x,y,z)) <$> gen <*> gen <*> gen
      gamma' <- return $ Map.insert varname i_type gamma 
      (o_type,e_p) <- compileLam gen o gamma' e
      t <- return $ LTArrow i_type o_type 
      share_io <- return $ Out res_channel (EVar io) 
      exec <- return 
-           $ Inp io (PTup [(PVar varname),(PVar o)])
-           -- $ Inp i (PVar varname) 
+           $ Inp io (PTup [(PVar i),(PVar o)])
+           $ Inp i (PVar varname)
            $ e_p
      p <- return 
-        $ New io (typeTrans t)
+        $ New io (typeTrans t) -- Here (Probably Right)
         $ share_io :|: exec 
      return (t,p)
 compileLam gen res_channel gamma (LApp x y) = 
@@ -153,8 +153,8 @@ compileLam gen res_channel gamma (LApp x y) =
                $ Inp x_res (PVar x_io)
                $ Out x_io (ETup [(EVar y_o),(EVar res_channel)])
      p <- return 
-        $ New y_o (TChan $ typeTrans y_t)
-        $ New x_res (TChan $ typeTrans x_t)
+        $ New y_o (typeTrans y_t) -- Here
+        $ New x_res (TChan $ typeTrans x_t) -- Here 
         $ y_p :|: x_p :|: plumbing  
      t <- return $ (\ (LTArrow _ typ) -> typ) x_t
      return (t,p)
