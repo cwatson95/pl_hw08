@@ -1,4 +1,4 @@
-00
+000
 Translated program does not type check.  Program:
 new x0 : Chan (). (new x2 : (). new x3 : (Chan (), Chan ()). ((send x2(ETup [])) | (new x4 : (Chan (), Chan ()). (send x3(EVar "x4")) | (rec x4(PTup [PVar "x5",PVar "x6"]). rec x5(PVar "x"). <function> send x6(EVar "x")))) | (rec x3(PVar "x1"). send x1(ETup [EVar "x2",EVar "x0"]))) | (rec x0(Wild). <function> 0)
 Error: 
@@ -9,7 +9,7 @@ Expression : ETup [EVar "x2",EVar "x0"]
 Expression type : ((), Chan ())
 Context : fromList [("x0",Chan ()),("x1",(Chan (), Chan ())),("x2",()),("x3",(Chan (), Chan ()))]
 
-01
+001
 
 Translated program does not type check.  Program:
 new x0 : Chan (). (new x2 : (). new x3 : Chan (Chan (), Chan ()). ((send x2(ETup [])) | (new x4 : (Chan (), Chan ()). (send x3(EVar "x4")) | (rec x4(PTup [PVar "x5",PVar "x6"]). rec x5(PVar "x"). <function> send x6(EVar "x")))) | (rec x3(PVar "x1"). send x1(ETup [EVar "x2",EVar "x0"]))) | (rec x0(Wild). <function> 0)
@@ -21,7 +21,7 @@ Expression : EVar "x4"
 Expression type : (Chan (), Chan ())
 Context : fromList [("x0",Chan ()),("x2",()),("x3",Chan (Chan (), Chan ())),("x4",(Chan (), Chan ()))]
 
-10
+010
 
 Translated program does not type check.  Program:
 new x0 : Chan (). (new x2 : Chan (). new x3 : (Chan (), Chan ()). ((send x2(ETup [])) | (new x4 : (Chan (), Chan ()). (send x3(EVar "x4")) | (rec x4(PTup [PVar "x5",PVar "x6"]). rec x5(PVar "x"). <function> send x6(EVar "x")))) | (rec x3(PVar "x1"). send x1(ETup [EVar "x2",EVar "x0"]))) | (rec x0(Wild). <function> 0)
@@ -33,7 +33,7 @@ Expression : ETup []
 Expression type : ()
 Context : fromList [("x0",Chan ()),("x2",Chan ()),("x3",(Chan (), Chan ()))]
 
-11
+011
 
 Translated program does not type check.  Program:
 new x0 : Chan (). (new x2 : Chan (). new x3 : Chan (Chan (), Chan ()). ((send x2(ETup [])) | (new x4 : (Chan (), Chan ()). (send x3(EVar "x4")) | (rec x4(PTup [PVar "x5",PVar "x6"]). rec x5(PVar "x"). <function> send x6(EVar "x")))) | (rec x3(PVar "x1"). send x1(ETup [EVar "x2",EVar "x0"]))) | (rec x0(Wild). <function> 0)
@@ -44,3 +44,22 @@ Variable type : Chan ()
 Expression : ETup []
 Expression type : ()
 Context : fromList [("x0",Chan ()),("x2",Chan ()),("x3",Chan (Chan (), Chan ()))]
+
+100
+
+101
+
+110
+
+111
+
+test 1:
+Translated program does not type check.  Program:
+new x0 : Chan (). (new x2 : (). new x3 : (Chan (), Chan ()). ((send x2(ETup [])) | (new x4 : Chan (Chan (), Chan ()). (send x3(EVar "x4")) | (rec x4(PTup [PVar "x5",PVar "x6"]). rec x5(PVar "x"). <function> send x6(EVar "x")))) | (rec x3(PVar "x1"). send x1(ETup [EVar "x2",EVar "x0"]))) | (rec x0(Wild). <function> 0)
+Error: 
+Types do not match 
+Variable : "x3"
+Variable type : (Chan (), Chan ())
+Expression : EVar "x4"
+Expression type : Chan (Chan (), Chan ())
+Context : fromList [("x0",Chan ()),("x2",()),("x3",(Chan (), Chan ())),("x4",Chan (Chan (), Chan ()))]

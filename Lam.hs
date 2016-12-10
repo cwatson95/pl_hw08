@@ -121,46 +121,40 @@ typeTrans (LTArrow t1 t2) = TTup [TChan (typeTrans t1), TChan (typeTrans t2)]
 -- note that your first argument is a name generator, to come up with fresh channel names
 compileLam :: IO Name -> Name -> Gamma -> Lam -> IO (LTyp, Pi)
 compileLam gen res_channel gamma LUnit = 
-  do p <- return $ Out res_channel unitE
-     t <- return $ LTUnit 
+  do let p = Out res_channel unitE
+     let t = LTUnit 
      return (t,p)
 compileLam gen res_channel gamma (LVar varname) =
-  do t <- if Map.member varname gamma
-          then return $ gamma Map.! varname
-          else error $ "Varname : " ++ varname ++ " not not stored in context : " ++ show gamma
-     p <- return $ Out res_channel (EVar varname)
+  do let t = if Map.member varname gamma
+             then gamma Map.! varname
+             else error $ "Varname : " ++ varname ++ " not not stored in context : " ++ show gamma
+     let p = Out res_channel (EVar varname)
      return (t,p)
 compileLam gen res_channel gamma labs@(LAbs varname i_type e) = 
-  do (io,i,o) <- (\ x y z -> (x,y,z)) <$> gen <*> gen <*> gen
-     gamma' <- return $ Map.insert varname i_type gamma 
+  do [io,i,o] <- sequence [gen,gen,gen]
      (o_type,e_p) <- compileLam gen o gamma' e
-     t <- return $ LTArrow i_type o_type 
-     share_io <- return $ Out res_channel (EVar io) 
-     exec <- return 
-           $ Inp io (PTup [(PVar i),(PVar o)])
-           $ Inp i (PVar varname)
-           $ e_p
-     p <- return 
-        $ New io (typeTrans t) -- Here (Probably Right)
-        $ share_io :|: exec 
+     let share_io = Out res_channel $ ETup [(EVar i),(EVar o)] 
+     let exec = Inp i (PVar varname) e_p
+     let p = New i (TChan $ typeTrans i_type)
+           $ New o (TChan $ typeTrans o_type)
+           $ share_io :|: exec 
+     let t = LTArrow i_type o_type 
      return (t,p)
-compileLam gen res_channel gamma (LApp x y) = 
-  do x_io <- gen
-     (y_o,x_res) <- (\ x y -> (x,y)) <$> gen <*> gen
-     (x_t,x_p) <- compileLam gen x_res gamma x
-     (y_t,y_p) <- compileLam gen y_o gamma y
-     plumbing <- return 
-               $ Inp x_res (PVar x_io)
-               $ Out x_io (ETup [(EVar y_o),(EVar res_channel)])
-     p <- return 
-        $ New y_o (typeTrans y_t) -- Here
-        $ New x_res (TChan $ typeTrans x_t) -- Here 
-        $ y_p :|: x_p :|: plumbing  
-     t <- return $ (\ (LTArrow _ typ) -> typ) x_t
+     where gamma' = Map.insert varname i_type gamma 
+compileLam gen res_channel gamma (LApp func arg) = 
+  do [i,o,io,res] <- sequence [gen,gen,gen,gen]
+     (func_t,func_p) <- compileLam gen io gamma func
+     (arg_t,arg_p) <- compileLam gen i gamma arg
+     let send_res = (Inp o (PVar res) $ Out res_channel (EVar res))
+     let exec_func = Inp io (PTup [(PVar i),(PVar o)])
+              $ arg_p :|: send_res
+     let p = New io (TChan $ typeTrans func_t)
+           $ func_p :|: exec_func  
+     let t = (\ (LTArrow _ typ) -> typ) func_t
      return (t,p)
 compileLam gen res_channel gamma (LEff io e) =  
   do (e_t,e_p) <- compileLam gen res_channel gamma e
-     p <- return $ Embed (envAction io) e_p 
+     let p = Embed (envAction io) e_p 
      return (e_t,p)
 
 envAction :: IO () -> Env -> IO ()

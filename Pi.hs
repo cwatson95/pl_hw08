@@ -137,33 +137,38 @@ typePat gamma Wild _ = Right gamma
 
 checkPi :: Gamma -> Pi -> Either String ()
 checkPi gamma Nil = Right ()
-checkPi gamma (p1 :|: p2) = 
-  let p1_check = checkPi gamma p1 
-      p2_check = checkPi gamma p2
-  in  (\ a b -> ()) <$> p1_check <*> p2_check
-checkPi gamma (New name t p) = 
-  let gamma' = Map.insert name t gamma -- ???
-  in checkPi gamma' p
-checkPi gamma (Out name e) 
-  | Map.member name gamma = join $ check <$> (pure name_type) <*> e_type  
-  | otherwise = Left $ name ++ " not found in context " ++ show gamma
-  where name_type = gamma Map.! name
+checkPi gamma (p1 :|: p2) = do
+  checkPi gamma p1 
+  checkPi gamma p2
+checkPi gamma (New chan t p) = 
+  case t of
+    (TChan _) -> checkPi (Map.insert chan t gamma) p
+    (TTup _) -> Left "Channel is not of type TChan _"
+checkPi gamma (Out chan e) 
+  | Map.member chan gamma = join $ sameType <$> (pure chan_type) <*> e_type  
+  | otherwise = Left $ chan ++ " not found in context " ++ show gamma
+  where chan_type = gamma Map.! chan
         e_type = typeExp gamma e
-        check = (\ a b -> if a == b then Right () else Left $ outError name a e b gamma)
-checkPi gamma (Inp name pat p) = 
-  let typ = if Map.member name gamma 
-            then Right $ gamma Map.! name
-            else Left $ name ++ " not found in context " ++ show gamma
-      gamma' = join $ typePat gamma pat <$> typ
-  in  join $ checkPi <$> gamma' <*> (pure p)
+        sameType = (\ c_t e_t -> if c_t == (TChan e_t) then Right () else Left $ outError chan c_t e e_t gamma)
+checkPi gamma (Inp chan pat p) = 
+  do chan_type <- return $ gamma Map.! chan
+     carry_type <- getCarry chan_type
+     gamma' <- typePat gamma pat carry_type
+     checkPi gamma' p
 checkPi gamma (RepInp name pat p) = checkPi gamma (Inp name pat p)
 checkPi gamma (Embed _ p) = checkPi gamma p
  
 --checkPi _ _ = Right ()
+
+
+getCarry :: Typ -> Either String Typ
+getCarry (TChan carry) = Right carry
+getCarry (TTup _) = Left "Attempting to get carry type from non-channel"
+
 outError a a_t b b_t gamma = 
   "Types do not match \n" 
- ++ "Variable : " ++ show a ++ "\n"
- ++ "Variable type : " ++ show a_t ++ "\n"
+ ++ "Channel : " ++ show a ++ "\n"
+ ++ "Channel type : " ++ show a_t ++ "\n"
  ++ "Expression : " ++ show b ++ "\n"
  ++ "Expression type : " ++ show b_t ++ "\n"
  ++ "Context : " ++ show gamma
